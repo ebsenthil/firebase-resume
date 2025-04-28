@@ -1,20 +1,30 @@
 import React, { useState, useEffect } from "react";
 import "./App.css";
-import { getAuth, signInWithEmailAndPassword, signOut, onAuthStateChanged } from "firebase/auth";
 import { initializeApp } from "firebase/app";
+import { 
+  getAuth, 
+  createUserWithEmailAndPassword, 
+  signInWithEmailAndPassword, 
+  signOut, 
+  onAuthStateChanged,
+  GoogleAuthProvider,
+  signInWithPopup 
+} from "firebase/auth";
 
-// Initialize Firebase
+// Firebase configuration
 const firebaseConfig = {
   apiKey: "AIzaSyA3ecMiFFfSDrVOV_Exjpdiw8ceVcS434c",
   authDomain: "fir-resume-app.firebaseapp.com",
   projectId: "fir-resume-app",
-  storageBucket: "fir-resume-app.appspot.com",
+  storageBucket: "fir-resume-app.firebasestorage.app",
   messagingSenderId: "337503710284",
   appId: "1:337503710284:web:65ade82b8335e491e4d8e9"
 };
 
+// Initialize Firebase
 const app = initializeApp(firebaseConfig);
 const auth = getAuth(app);
+const googleProvider = new GoogleAuthProvider();
 
 function App() {
     const initialFormData = {
@@ -37,48 +47,84 @@ function App() {
     const [loading, setLoading] = useState(false);
     const [error, setError] = useState("");
     const [successMessage, setSuccessMessage] = useState("");
+    
+    // Auth states
     const [user, setUser] = useState(null);
     const [authLoading, setAuthLoading] = useState(true);
-    const [loginForm, setLoginForm] = useState({
+    const [authError, setAuthError] = useState("");
+    const [authMode, setAuthMode] = useState("login"); // 'login' or 'register'
+    const [authFormData, setAuthFormData] = useState({
         email: "",
         password: ""
     });
 
-    // Check auth state on component mount
+    // Check if user is already signed in
     useEffect(() => {
-        const unsubscribe = onAuthStateChanged(auth, (user) => {
-            setUser(user);
+        const unsubscribe = onAuthStateChanged(auth, (currentUser) => {
+            setUser(currentUser);
             setAuthLoading(false);
         });
+        
+        // Cleanup subscription on unmount
         return () => unsubscribe();
     }, []);
 
+    const handleAuthChange = (e) => {
+        setAuthFormData({ ...authFormData, [e.target.name]: e.target.value });
+        setAuthError("");
+    };
+
     const handleLogin = async (e) => {
         e.preventDefault();
-        setLoading(true);
-        setError("");
+        setAuthLoading(true);
+        setAuthError("");
         
         try {
-            await signInWithEmailAndPassword(auth, loginForm.email, loginForm.password);
-            setSuccessMessage("Logged in successfully!");
+            await signInWithEmailAndPassword(auth, authFormData.email, authFormData.password);
+            setSuccessMessage("Successfully logged in!");
         } catch (err) {
-            setError(err.message);
+            setAuthError("Login failed: " + err.message);
         } finally {
-            setLoading(false);
+            setAuthLoading(false);
+        }
+    };
+
+    const handleRegister = async (e) => {
+        e.preventDefault();
+        setAuthLoading(true);
+        setAuthError("");
+        
+        try {
+            await createUserWithEmailAndPassword(auth, authFormData.email, authFormData.password);
+            setSuccessMessage("Account created successfully!");
+        } catch (err) {
+            setAuthError("Registration failed: " + err.message);
+        } finally {
+            setAuthLoading(false);
+        }
+    };
+
+    const handleGoogleSignIn = async () => {
+        setAuthLoading(true);
+        setAuthError("");
+        
+        try {
+            await signInWithPopup(auth, googleProvider);
+            setSuccessMessage("Successfully logged in with Google!");
+        } catch (err) {
+            setAuthError("Google sign-in failed: " + err.message);
+        } finally {
+            setAuthLoading(false);
         }
     };
 
     const handleLogout = async () => {
         try {
             await signOut(auth);
-            setSuccessMessage("Logged out successfully!");
+            setSuccessMessage("Successfully logged out!");
         } catch (err) {
-            setError(err.message);
+            setError("Logout failed: " + err.message);
         }
-    };
-
-    const handleLoginChange = (e) => {
-        setLoginForm({ ...loginForm, [e.target.name]: e.target.value });
     };
 
     const handleChange = (e) => {
@@ -245,68 +291,105 @@ function App() {
         );
     };
 
-    // Show loading state while checking auth
-    if (authLoading) {
-        return (
-            <div className="App container">
-                <div className="loader">Checking authentication...</div>
-            </div>
-        );
-    }
-
-    // Show login form if not authenticated
+    // Authentication UI
     if (!user) {
         return (
             <div className="App container">
-                <h1>Resume Generator Login</h1>
-                <p className="subheading">Please sign in to access the resume generator</p>
-                
-                {error && <div className="error-toast">{error}</div>}
+                <h1>AI Resume Generator</h1>
+                <p className="subheading">Sign in to generate an ATS-friendly resume tailored to a job description.</p>
+
+                {authError && <div className="error-toast">{authError}</div>}
                 {successMessage && <div className="success-toast">{successMessage}</div>}
-                
-                <form onSubmit={handleLogin} className="login-form">
-                    <div className="form-field">
-                        <label htmlFor="email">Email</label>
-                        <input
-                            type="email"
-                            id="email"
-                            name="email"
-                            value={loginForm.email}
-                            onChange={handleLoginChange}
-                            required
-                            disabled={loading}
-                        />
+
+                <div className="auth-container">
+                    <div className="auth-card">
+                        <h2>{authMode === "login" ? "Login" : "Create Account"}</h2>
+                        
+                        <form onSubmit={authMode === "login" ? handleLogin : handleRegister} className="auth-form">
+                            <div className="form-field">
+                                <label htmlFor="email">Email</label>
+                                <input
+                                    type="email"
+                                    id="email"
+                                    name="email"
+                                    value={authFormData.email}
+                                    onChange={handleAuthChange}
+                                    required
+                                    disabled={authLoading}
+                                />
+                            </div>
+                            
+                            <div className="form-field">
+                                <label htmlFor="password">Password</label>
+                                <input
+                                    type="password"
+                                    id="password"
+                                    name="password"
+                                    value={authFormData.password}
+                                    onChange={handleAuthChange}
+                                    required
+                                    disabled={authLoading}
+                                />
+                            </div>
+
+                            <div className="button-group auth-buttons">
+                                <button 
+                                    type="submit" 
+                                    disabled={authLoading}
+                                    className="auth-btn"
+                                >
+                                    {authLoading 
+                                        ? "Processing..." 
+                                        : (authMode === "login" ? "Sign In" : "Create Account")}
+                                </button>
+                                
+                                <button 
+                                    type="button" 
+                                    onClick={handleGoogleSignIn}
+                                    disabled={authLoading}
+                                    className="google-btn"
+                                >
+                                    Sign in with Google
+                                </button>
+                            </div>
+                        </form>
+                        
+                        <div className="auth-toggle">
+                            {authMode === "login" ? (
+                                <p>
+                                    Don't have an account?{" "}
+                                    <button 
+                                        className="link-button" 
+                                        onClick={() => setAuthMode("register")}
+                                    >
+                                        Sign up
+                                    </button>
+                                </p>
+                            ) : (
+                                <p>
+                                    Already have an account?{" "}
+                                    <button 
+                                        className="link-button" 
+                                        onClick={() => setAuthMode("login")}
+                                    >
+                                        Sign in
+                                    </button>
+                                </p>
+                            )}
+                        </div>
                     </div>
-                    <div className="form-field">
-                        <label htmlFor="password">Password</label>
-                        <input
-                            type="password"
-                            id="password"
-                            name="password"
-                            value={loginForm.password}
-                            onChange={handleLoginChange}
-                            required
-                            disabled={loading}
-                        />
-                    </div>
-                    <button type="submit" disabled={loading} className="generate-btn">
-                        {loading ? "Signing in..." : "Sign In"}
-                    </button>
-                </form>
+                </div>
             </div>
         );
     }
 
-    // Main app content when authenticated
     return (
         <div className="App container">
-            <div className="auth-header">
-                <span>Welcome, {user.email}</span>
-                <button onClick={handleLogout} className="logout-btn">
-                    Sign Out
-                </button>
+            <div className="user-nav">
+                <span className="welcome-message">Welcome, {user.email}</span>
+                <button onClick={handleLogout} className="logout-btn">Logout</button>
             </div>
-            
+
             <h1>AI Resume Generator</h1>
             <p className="subheading">Generate an ATS-friendly resume tailored to a job description.</p>
 

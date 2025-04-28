@@ -8,8 +8,7 @@ import {
   signOut, 
   onAuthStateChanged,
   GoogleAuthProvider,
-  signInWithPopup,
-  sendPasswordResetEmail 
+  signInWithPopup 
 } from "firebase/auth";
 
 // Firebase configuration
@@ -51,9 +50,9 @@ function App() {
     
     // Auth states
     const [user, setUser] = useState(null);
-    const [authLoading, setAuthLoading] = useState(false);
+    const [authLoading, setAuthLoading] = useState(true);
     const [authError, setAuthError] = useState("");
-    const [authMode, setAuthMode] = useState("login"); // 'login', 'register', or 'resetPassword'
+    const [authMode, setAuthMode] = useState("login"); // 'login' or 'register'
     const [authFormData, setAuthFormData] = useState({
         email: "",
         password: ""
@@ -100,29 +99,6 @@ function App() {
             setSuccessMessage("Account created successfully!");
         } catch (err) {
             setAuthError("Registration failed: " + err.message);
-        } finally {
-            setAuthLoading(false);
-        }
-    };
-
-    const handleResetPassword = async (e) => {
-        e.preventDefault();
-        setAuthLoading(true);
-        setAuthError("");
-        
-        if (!authFormData.email) {
-            setAuthError("Please enter your email address");
-            setAuthLoading(false);
-            return;
-        }
-        
-        try {
-            await sendPasswordResetEmail(auth, authFormData.email);
-            setSuccessMessage("Password reset email sent! Please check your inbox.");
-            // Return to login mode after sending reset email
-            setAuthMode("login");
-        } catch (err) {
-            setAuthError("Password reset failed: " + err.message);
         } finally {
             setAuthLoading(false);
         }
@@ -327,132 +303,80 @@ function App() {
 
                 <div className="auth-container">
                     <div className="auth-card">
-                        <h2>
-                            {authMode === "login" 
-                                ? "Login" 
-                                : authMode === "register" 
-                                    ? "Create Account" 
-                                    : "Reset Password"}
-                        </h2>
+                        <h2>{authMode === "login" ? "Login" : "Create Account"}</h2>
                         
-                        {authMode === "resetPassword" ? (
-                            <form onSubmit={handleResetPassword} className="auth-form">
-                                <div className="form-field">
-                                    <label htmlFor="email">Email</label>
-                                    <input
-                                        type="email"
-                                        id="email"
-                                        name="email"
-                                        value={authFormData.email}
-                                        onChange={handleAuthChange}
-                                        required
-                                        disabled={authLoading}
-                                    />
-                                </div>
-                                
-                                <div className="button-group auth-buttons">
-                                    <button 
-                                        type="submit" 
-                                        disabled={authLoading}
-                                        className="auth-btn"
-                                    >
-                                        {authLoading ? "Sending..." : "Send Reset Email"}
-                                    </button>
-                                    
-                                    <button 
-                                        type="button" 
-                                        onClick={() => setAuthMode("login")}
-                                        className="secondary-btn"
-                                    >
-                                        Back to Login
-                                    </button>
-                                </div>
-                            </form>
-                        ) : (
-                            <>
-                                <form onSubmit={authMode === "login" ? handleLogin : handleRegister} className="auth-form">
-                                    <div className="form-field">
-                                        <label htmlFor="email">Email</label>
-                                        <input
-                                            type="email"
-                                            id="email"
-                                            name="email"
-                                            value={authFormData.email}
-                                            onChange={handleAuthChange}
-                                            required
-                                        />
-                                    </div>
-                                    
-                                    <div className="form-field">
-                                        <label htmlFor="password">Password</label>
-                                        <input
-                                            type="password"
-                                            id="password"
-                                            name="password"
-                                            value={authFormData.password}
-                                            onChange={handleAuthChange}
-                                            required
-                                        />
-                                    </div>
+                        <form onSubmit={authMode === "login" ? handleLogin : handleRegister} className="auth-form">
+                            <div className="form-field">
+                                <label htmlFor="email">Email</label>
+                                <input
+                                    type="email"
+                                    id="email"
+                                    name="email"
+                                    value={authFormData.email}
+                                    onChange={handleAuthChange}
+                                    required
+                                    disabled={authLoading}
+                                />
+                            </div>
+                            
+                            <div className="form-field">
+                                <label htmlFor="password">Password</label>
+                                <input
+                                    type="password"
+                                    id="password"
+                                    name="password"
+                                    value={authFormData.password}
+                                    onChange={handleAuthChange}
+                                    required
+                                    disabled={authLoading}
+                                />
+                            </div>
 
-                                    <div className="button-group auth-buttons">
-                                        <button 
-                                            type="submit" 
-                                            disabled={authLoading}
-                                            className="auth-btn"
-                                        >
-                                            {authLoading 
-                                                ? "Processing..." 
-                                                : (authMode === "login" ? "Sign In" : "Create Account")}
-                                        </button>
-                                        
-                                        <button 
-                                            type="button" 
-                                            onClick={handleGoogleSignIn}
-                                            disabled={authLoading}
-                                            className="google-btn"
-                                        >
-                                            Sign in with Google
-                                        </button>
-                                    </div>
-                                </form>
+                            <div className="button-group auth-buttons">
+                                <button 
+                                    type="submit" 
+                                    disabled={authLoading}
+                                    className="auth-btn"
+                                >
+                                    {authLoading 
+                                        ? "Processing..." 
+                                        : (authMode === "login" ? "Sign In" : "Create Account")}
+                                </button>
                                 
-                                <div className="auth-toggle">
-                                    {authMode === "login" ? (
-                                        <>
-                                            <p>
-                                                Don't have an account?{" "}
-                                                <button 
-                                                    className="link-button" 
-                                                    onClick={() => setAuthMode("register")}
-                                                >
-                                                    Sign up
-                                                </button>
-                                            </p>
-                                            <p>
-                                                Forgot password?{" "}
-                                                <button 
-                                                    className="link-button" 
-                                                    onClick={() => setAuthMode("resetPassword")}
-                                                >
-                                                    Reset it here
-                                                </button>
-                                            </p>
-                                        </>
-                                    ) : (
-                                        <p>
-                                            Already have an account?{" "}
-                                            <button 
-                                                className="link-button" 
-                                                onClick={() => setAuthMode("login")}
-                                            >
-                                                Sign in
-                                            </button>
-                                        </p>
-                                    )}
-                                </div>
-                            </>
-                        )}
+                                <button 
+                                    type="button" 
+                                    onClick={handleGoogleSignIn}
+                                    disabled={authLoading}
+                                    className="google-btn"
+                                >
+                                    Sign in with Google
+                                </button>
+                            </div>
+                        </form>
+                        
+                        <div className="auth-toggle">
+                            {authMode === "login" ? (
+                                <p>
+                                    Don't have an account?{" "}
+                                    <button 
+                                        className="link-button" 
+                                        onClick={() => setAuthMode("register")}
+                                    >
+                                        Sign up
+                                    </button>
+                                </p>
+                            ) : (
+                                <p>
+                                    Already have an account?{" "}
+                                    <button 
+                                        className="link-button" 
+                                        onClick={() => setAuthMode("login")}
+                                    >
+                                        Sign in
+                                    </button>
+                                </p>
+                            )}
+                        </div>
                     </div>
                 </div>
             </div>

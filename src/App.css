@@ -1,51 +1,50 @@
-.auth-container {
-  max-width: 400px;
-  margin: 80px auto;
-  padding: 20px;
-  background: #ffffff;
-  border-radius: 12px;
-  box-shadow: 0 8px 24px rgba(0, 0, 0, 0.08);
-  text-align: center;
-}
-
-.auth-container input {
-  width: 100%;
-  padding: 12px;
-  margin-bottom: 10px;
-  border: 1px solid #ccc;
-  border-radius: 6px;
-}
-
-.auth-container button {
-  padding: 12px 24px;
-  background: #3498db;
-  border: none;
-  border-radius: 6px;
-  color: white;
-  font-weight: bold;
-  cursor: pointer;
-}
-
-.auth-container .link {
-  color: #3498db;
-  cursor: pointer;
-  font-weight: bold;
+/* Auth Styles */
+.login-form {
+    max-width: 400px;
+    margin: 0 auto;
+    padding: 30px;
+    background: var(--container-bg);
+    border-radius: var(--border-radius);
+    box-shadow: var(--box-shadow);
 }
 
 .auth-header {
-  display: flex;
-  justify-content: space-between;
-  background: #f4f7fa;
-  padding: 10px 20px;
-  align-items: center;
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    margin-bottom: 20px;
+    padding-bottom: 15px;
+    border-bottom: 1px solid var(--light-grey);
 }
 
-.auth-header .logout-btn {
-  padding: 8px 16px;
-  background: #e74c3c;
-  color: white;
-  border: none;
-  border-radius: 6px;
-  cursor: pointer;
+.auth-header span {
+    font-weight: 500;
+    color: var(--primary-color);
 }
 
+.logout-btn {
+    background-color: #e74c3c;
+    padding: 8px 15px;
+    font-size: 0.9rem;
+}
+
+.logout-btn:hover:not(:disabled) {
+    background-color: #c0392b;
+}
+
+/* Login Form Specific Styles */
+.login-form .form-field {
+    margin-bottom: 20px;
+}
+
+.login-form input[type="email"],
+.login-form input[type="password"] {
+    width: 100%;
+    padding: 12px 15px;
+    margin-top: 5px;
+}
+
+.login-form button {
+    width: 100%;
+    margin-top: 10px;
+}

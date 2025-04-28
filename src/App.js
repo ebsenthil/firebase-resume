@@ -1,274 +1,235 @@
 // App.js
 import React, { useState, useEffect } from "react";
 import "./App.css";
-import { auth } from "./firebase";  // ✅ Import your Firebase configuration
-import { onAuthStateChanged, signInWithEmailAndPassword, signOut, createUserWithEmailAndPassword } from "firebase/auth";
+import { initializeApp } from "firebase/app";
+import {
+  getAuth,
+  createUserWithEmailAndPassword,
+  signInWithEmailAndPassword,
+  signOut,
+  onAuthStateChanged
+} from "firebase/auth";
+
+// ✅ Initialize Firebase (replace with your actual config)
+const firebaseConfig = {
+  apiKey: "AIzaSyA3ecMiFFfSDrVOV_Exjpdiw8ceVcS434c",
+  authDomain: "fir-resume-app.firebaseapp.com",
+  projectId: "fir-resume-app",
+  storageBucket: "fir-resume-app.appspot.com",
+  messagingSenderId: "337503710284",
+  appId: "1:337503710284:web:65ade82b8335e491e4d8e9"
+};
+
+const app = initializeApp(firebaseConfig);
+const auth = getAuth(app);
 
 function App() {
-    const initialFormData = {
-        name: "",
-        email: "",
-        phone: "",
-        linkedin: "",
-        education: "",
-        experience: "",
-        certifications: "",
-        skills: "",
-        languages: "",
-        extracurricular: "",
-        jobDescription: "",
-    };
+  const initialFormData = {
+    name: "",
+    email: "",
+    phone: "",
+    linkedin: "",
+    education: "",
+    experience: "",
+    certifications: "",
+    skills: "",
+    languages: "",
+    extracurricular: "",
+    jobDescription: "",
+  };
 
-    const [formData, setFormData] = useState(initialFormData);
-    const [editedData, setEditedData] = useState(null);
-    const [stage, setStage] = useState("form"); // 'form', 'preview'
-    const [loading, setLoading] = useState(false);
-    const [error, setError] = useState("");
-    const [successMessage, setSuccessMessage] = useState("");
+  const [user, setUser] = useState(null);
+  const [authForm, setAuthForm] = useState({ email: "", password: "" });
+  const [authMode, setAuthMode] = useState("login"); // "login" or "signup"
+  const [authError, setAuthError] = useState("");
 
-    // 👇 Firebase Authentication States
-    const [user, setUser] = useState(null);
-    const [authMode, setAuthMode] = useState("login"); // 'login' or 'signup'
-    const [authEmail, setAuthEmail] = useState("");
-    const [authPassword, setAuthPassword] = useState("");
+  const [formData, setFormData] = useState(initialFormData);
+  const [editedData, setEditedData] = useState(null);
+  const [stage, setStage] = useState("form"); // 'form', 'preview'
+  const [loading, setLoading] = useState(false);
+  const [error, setError] = useState("");
+  const [successMessage, setSuccessMessage] = useState("");
 
-    // 👇 Monitor User Login State
-    useEffect(() => {
-        const unsubscribe = onAuthStateChanged(auth, (currentUser) => {
-            setUser(currentUser);
-            if (currentUser?.email) {
-                setFormData((prev) => ({ ...prev, email: currentUser.email }));
-            }
-        });
-        return () => unsubscribe();
-    }, []);
+  useEffect(() => {
+    const unsubscribe = onAuthStateChanged(auth, (user) => {
+      setUser(user);
+    });
+    return unsubscribe;
+  }, []);
 
-    const handleLoginSignup = async (e) => {
-        e.preventDefault();
-        setError("");
-        try {
-            if (authMode === "login") {
-                await signInWithEmailAndPassword(auth, authEmail, authPassword);
-            } else {
-                await createUserWithEmailAndPassword(auth, authEmail, authPassword);
-            }
-        } catch (err) {
-            setError(err.message);
-        }
-    };
+  const handleAuthInputChange = (e) => {
+    setAuthForm({ ...authForm, [e.target.name]: e.target.value });
+  };
 
-    const handleLogout = async () => {
-        await signOut(auth);
-        setFormData(initialFormData);
-        setEditedData(null);
-        setStage("form");
-    };
+  const handleLogin = async () => {
+    try {
+      await signInWithEmailAndPassword(auth, authForm.email, authForm.password);
+      setAuthError("");
+    } catch (error) {
+      setAuthError(error.message);
+    }
+  };
 
-    const handleChange = (e) => {
-        setFormData({ ...formData, [e.target.name]: e.target.value });
-    };
+  const handleSignup = async () => {
+    try {
+      await createUserWithEmailAndPassword(auth, authForm.email, authForm.password);
+      setAuthError("");
+    } catch (error) {
+      setAuthError(error.message);
+    }
+  };
 
-    const handleEditedChange = (e) => {
-        setEditedData({ ...editedData, [e.target.name]: e.target.value });
-    };
+  const handleLogout = async () => {
+    await signOut(auth);
+    setUser(null);
+    setAuthForm({ email: "", password: "" });
+  };
 
-    const handleReset = () => {
-        setFormData(initialFormData);
-        setEditedData(null);
-        setStage("form");
-        setError("");
-        setSuccessMessage("");
-        setLoading(false);
-    };
+  const handleChange = (e) => {
+    setFormData({ ...formData, [e.target.name]: e.target.value });
+  };
 
-    const handleGenerateResume = async () => {
-        setLoading(true);
-        setError("");
-        setSuccessMessage("");
+  const handleEditedChange = (e) => {
+    setEditedData({ ...editedData, [e.target.name]: e.target.value });
+  };
 
-        if (!formData.name || !formData.jobDescription) {
-            setError("Please provide at least your Name and the Job Description.");
-            setLoading(false);
-            return;
-        }
+  const handleReset = () => {
+    setFormData(initialFormData);
+    setEditedData(null);
+    setStage("form");
+    setError("");
+    setSuccessMessage("");
+    setLoading(false);
+  };
 
-        try {
-            const response = await fetch("https://2no2a0hmtd.execute-api.us-east-1.amazonaws.com/dev/resume-view2", {
-                method: "POST",
-                headers: { "Content-Type": "application/json" },
-                body: JSON.stringify(formData),
-            });
+  const handleGenerateResume = async () => {
+    setLoading(true);
+    setError("");
+    setSuccessMessage("");
 
-            const data = await response.json();
-
-            if (!response.ok) {
-                throw new Error(data.error || `HTTP error! status: ${response.status}`);
-            }
-
-            const formattedData = {
-                ...data,
-                skills: Array.isArray(data.skills) ? data.skills : (data.skills ? String(data.skills).split(/,|\n/).map(s => s.trim()).filter(Boolean) : []),
-                experience: Array.isArray(data.experience) ? data.experience : (data.experience ? [{ responsibilities: String(data.experience).split('\n').filter(Boolean) }] : []),
-                education: Array.isArray(data.education) ? data.education : (data.education ? String(data.education).split('\n').map(s => s.trim()).filter(Boolean) : []),
-                certifications: Array.isArray(data.certifications) ? data.certifications : (data.certifications ? String(data.certifications).split('\n').map(s => s.trim()).filter(Boolean) : []),
-                languages: Array.isArray(data.languages) ? data.languages : (data.languages ? String(data.languages).split(/,|\n/).map(s => s.trim()).filter(Boolean) : []),
-                extracurricular: Array.isArray(data.extracurricular) ? data.extracurricular : (data.extracurricular ? String(data.extracurricular).split('\n').map(s => s.trim()).filter(Boolean) : []),
-            };
-
-            setEditedData(formattedData);
-            setStage("preview");
-            setSuccessMessage("✅ Resume generated successfully! Review and edit below.");
-        } catch (err) {
-            console.error("Resume generation failed:", err);
-            setError(`Resume generation failed: ${err.message}.`);
-            setEditedData(null);
-        } finally {
-            setLoading(false);
-        }
-    };
-
-    const handleDownloadPDF = async () => {
-        if (!editedData) {
-            setError("No resume data available to download.");
-            return;
-        }
-        setLoading(true);
-        setError("");
-        setSuccessMessage("");
-
-        try {
-            const response = await fetch("https://e73kxnqelj.execute-api.us-east-1.amazonaws.com/dev/resume-pdf2", {
-                method: "POST",
-                headers: { "Content-Type": "application/json" },
-                body: JSON.stringify(editedData),
-            });
-
-            if (!response.ok) {
-                let errorData;
-                try {
-                    errorData = await response.json();
-                } catch (e) { }
-                throw new Error(errorData?.error || `PDF Generation failed with status: ${response.status}`);
-            }
-
-            const blob = await response.blob();
-            const url = window.URL.createObjectURL(blob);
-            const a = document.createElement("a");
-            a.href = url;
-            const safeName = editedData.name ? editedData.name.replace(/[^a-z0-9]/gi, '_').toLowerCase() : 'resume';
-            a.download = `${safeName}_resume.pdf`;
-            document.body.appendChild(a);
-            a.click();
-            window.URL.revokeObjectURL(url);
-            a.remove();
-            setSuccessMessage("✅ PDF downloaded successfully!");
-        } catch (err) {
-            console.error("PDF generation failed:", err);
-            setError(`PDF download failed: ${err.message}.`);
-        } finally {
-            setLoading(false);
-        }
-    };
-
-    const renderTextArea = (fieldName, rows = 3) => {
-        let value = editedData[fieldName];
-        if (Array.isArray(value)) {
-            if (fieldName === 'skills' || fieldName === 'languages') {
-                value = value.join(", ");
-            } else {
-                value = value.join("\n");
-            }
-        }
-        const displayValue = (typeof value === 'string' || typeof value === 'number') ? value : '';
-
-        return (
-            <textarea
-                name={fieldName}
-                value={displayValue}
-                onChange={handleEditedChange}
-                rows={rows}
-                className="edit-area"
-                placeholder={fieldName.charAt(0).toUpperCase() + fieldName.slice(1)}
-                disabled={loading}
-            />
-        );
-    };
-
-    const renderExperienceEditor = () => {
-        let experienceString = "";
-        if (Array.isArray(editedData.experience) && editedData.experience.length > 0 && typeof editedData.experience[0] === 'object') {
-            experienceString = editedData.experience.map(job => {
-                const title = job.title || '';
-                const company = job.company || '';
-                const location = job.location || '';
-                const period = job.period || '';
-                const responsibilities = Array.isArray(job.responsibilities) ? job.responsibilities.map(r => `- ${r}`).join("\n") : (job.responsibilities || '');
-                return `Title: ${title}\nCompany: ${company}\nLocation: ${location}\nPeriod: ${period}\nResponsibilities:\n${responsibilities}`;
-            }).join("\n\n---\n\n");
-        } else if (typeof editedData.experience === 'string') {
-            experienceString = editedData.experience;
-        } else if (Array.isArray(editedData.experience)) {
-            experienceString = editedData.experience.join("\n\n---\n\n");
-        }
-
-        return (
-            <textarea
-                name="experience"
-                value={experienceString}
-                onChange={(e) => {
-                    setEditedData({ ...editedData, experience: e.target.value });
-                }}
-                rows={10}
-                className="edit-area"
-                placeholder="Experience details (e.g., Title: ..., Company: ..., Responsibilities: - ...)"
-                disabled={loading}
-            />
-        );
-    };
-
-    // 🔥 Authentication view: if no user logged in, show login/signup page
-    if (!user) {
-        return (
-            <div className="auth-container">
-                <h2>{authMode === "login" ? "Login" : "Sign Up"}</h2>
-                <form onSubmit={handleLoginSignup}>
-                    <input
-                        type="email"
-                        placeholder="Email"
-                        value={authEmail}
-                        onChange={(e) => setAuthEmail(e.target.value)}
-                        required
-                    />
-                    <input
-                        type="password"
-                        placeholder="Password"
-                        value={authPassword}
-                        onChange={(e) => setAuthPassword(e.target.value)}
-                        required
-                    />
-                    <button type="submit">{authMode === "login" ? "Login" : "Sign Up"}</button>
-                </form>
-                <p onClick={() => setAuthMode(authMode === "login" ? "signup" : "login")} className="auth-toggle">
-                    {authMode === "login" ? "Don't have an account? Sign Up" : "Already have an account? Login"}
-                </p>
-                {error && <div className="error">{error}</div>}
-            </div>
-        );
+    if (!formData.name || !formData.jobDescription) {
+      setError("Please provide at least your Name and the Job Description.");
+      setLoading(false);
+      return;
     }
 
-    // 🔥 Normal Resume Builder app if user is authenticated
-    return (
-        <>
-            <div className="logout-profile">
-                <p>Welcome, {user.email}</p>
-                <button onClick={handleLogout}>Logout</button>
-            </div>
-            {/* Your Full Resume App */}
-            {/* Copy rest of your main App content here below */}
-            {/* ... */}
-        </>
-    );
-}
+    try {
+      const response = await fetch("https://2no2a0hmtd.execute-api.us-east-1.amazonaws.com/dev/resume-view2", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify(formData),
+      });
 
-export default App;
+      const data = await response.json();
+
+      if (!response.ok) {
+        throw new Error(data.error || `HTTP error! status: ${response.status}`);
+      }
+
+      const formattedData = {
+        ...data,
+        skills: Array.isArray(data.skills) ? data.skills : (data.skills ? String(data.skills).split(/,|\n/).map(s => s.trim()).filter(Boolean) : []),
+        experience: Array.isArray(data.experience) ? data.experience : (data.experience ? [{ responsibilities: String(data.experience).split('\n').filter(Boolean) }] : []),
+        education: Array.isArray(data.education) ? data.education : (data.education ? String(data.education).split('\n').map(s => s.trim()).filter(Boolean) : []),
+        certifications: Array.isArray(data.certifications) ? data.certifications : (data.certifications ? String(data.certifications).split('\n').map(s => s.trim()).filter(Boolean) : []),
+        languages: Array.isArray(data.languages) ? data.languages : (data.languages ? String(data.languages).split(/,|\n/).map(s => s.trim()).filter(Boolean) : []),
+        extracurricular: Array.isArray(data.extracurricular) ? data.extracurricular : (data.extracurricular ? String(data.extracurricular).split('\n').map(s => s.trim()).filter(Boolean) : []),
+      };
+
+      setEditedData(formattedData);
+      setStage("preview");
+      setSuccessMessage("✅ Resume generated successfully! Review and edit below.");
+    } catch (err) {
+      console.error("Resume generation failed:", err);
+      setError(`Resume generation failed: ${err.message}. Please check your input or try again.`);
+      setEditedData(null);
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  const handleDownloadPDF = async () => {
+    if (!editedData) {
+      setError("No resume data available to download.");
+      return;
+    }
+    setLoading(true);
+    setError("");
+    setSuccessMessage("");
+
+    try {
+      const response = await fetch("https://e73kxnqelj.execute-api.us-east-1.amazonaws.com/dev/resume-pdf2", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify(editedData),
+      });
+
+      if (!response.ok) {
+        throw new Error(`PDF Generation failed with status: ${response.status}`);
+      }
+
+      const blob = await response.blob();
+      const url = window.URL.createObjectURL(blob);
+      const a = document.createElement("a");
+      a.href = url;
+      const safeName = editedData.name ? editedData.name.replace(/[^a-z0-9]/gi, '_').toLowerCase() : 'resume';
+      a.download = `${safeName}_resume.pdf`;
+      document.body.appendChild(a);
+      a.click();
+      window.URL.revokeObjectURL(url);
+      a.remove();
+      setSuccessMessage("✅ PDF downloaded successfully!");
+    } catch (err) {
+      console.error("PDF generation failed:", err);
+      setError(`PDF download failed: ${err.message}.`);
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  if (!user) {
+    return (
+      <div className="auth-container">
+        <h2>Login / Signup</h2>
+        <input
+          type="email"
+          name="email"
+          placeholder="Email"
+          value={authForm.email}
+          onChange={handleAuthInputChange}
+        />
+        <input
+          type="password"
+          name="password"
+          placeholder="Password"
+          value={authForm.password}
+          onChange={handleAuthInputChange}
+        />
+        {authMode === "login" ? (
+          <>
+            <button onClick={handleLogin}>Login</button>
+            <p>Don't have an account? <span className="link" onClick={() => setAuthMode("signup")}>Sign Up</span></p>
+          </>
+        ) : (
+          <>
+            <button onClick={handleSignup}>Sign Up</button>
+            <p>Already have an account? <span className="link" onClick={() => setAuthMode("login")}>Login</span></p>
+          </>
+        )}
+        {authError && <div className="error-toast">{authError}</div>}
+      </div>
+    );
+  }
+
+  // ✅ If authenticated user, show your resume app
+  return (
+    <>
+      <div className="auth-header">
+        <span>Welcome, {user.email}</span>
+        <button className="logout-btn" onClick={handleLogout}>Logout</button>
+      </div>
+
+      {/* 🔥 Your full app here unchanged 🔥 */}
+      {/* ... (YOUR ORIGINAL FUNCTIONALITY) ... */}
+      {/* Continue with your <h1>AI Resume Generator</h1> and other sections */}
 

@@ -1,16 +1,11 @@
-// App.js
 import React, { useState, useEffect } from "react";
 import "./App.css";
-import { initializeApp } from "firebase/app";
-import {
-  getAuth,
-  createUserWithEmailAndPassword,
-  signInWithEmailAndPassword,
-  signOut,
-  onAuthStateChanged
-} from "firebase/auth";
 
-// ✅ Initialize Firebase (replace with your actual config)
+// Firebase imports
+import { initializeApp } from "firebase/app";
+import { getAuth, createUserWithEmailAndPassword, signInWithEmailAndPassword, signOut, onAuthStateChanged } from "firebase/auth";
+
+// Your Firebase config
 const firebaseConfig = {
   apiKey: "AIzaSyA3ecMiFFfSDrVOV_Exjpdiw8ceVcS434c",
   authDomain: "fir-resume-app.firebaseapp.com",
@@ -20,6 +15,7 @@ const firebaseConfig = {
   appId: "1:337503710284:web:65ade82b8335e491e4d8e9"
 };
 
+// Initialize Firebase
 const app = initializeApp(firebaseConfig);
 const auth = getAuth(app);
 
@@ -38,11 +34,6 @@ function App() {
     jobDescription: "",
   };
 
-  const [user, setUser] = useState(null);
-  const [authForm, setAuthForm] = useState({ email: "", password: "" });
-  const [authMode, setAuthMode] = useState("login"); // "login" or "signup"
-  const [authError, setAuthError] = useState("");
-
   const [formData, setFormData] = useState(initialFormData);
   const [editedData, setEditedData] = useState(null);
   const [stage, setStage] = useState("form"); // 'form', 'preview'
@@ -50,40 +41,41 @@ function App() {
   const [error, setError] = useState("");
   const [successMessage, setSuccessMessage] = useState("");
 
+  const [user, setUser] = useState(null);
+  const [emailInput, setEmailInput] = useState("");
+  const [passwordInput, setPasswordInput] = useState("");
+  const [isSignup, setIsSignup] = useState(false);
+
   useEffect(() => {
-    const unsubscribe = onAuthStateChanged(auth, (user) => {
-      setUser(user);
+    const unsubscribe = onAuthStateChanged(auth, (currentUser) => {
+      setUser(currentUser);
     });
     return unsubscribe;
   }, []);
 
-  const handleAuthInputChange = (e) => {
-    setAuthForm({ ...authForm, [e.target.name]: e.target.value });
-  };
-
-  const handleLogin = async () => {
+  const handleLogin = async (e) => {
+    e.preventDefault();
     try {
-      await signInWithEmailAndPassword(auth, authForm.email, authForm.password);
-      setAuthError("");
+      if (isSignup) {
+        await createUserWithEmailAndPassword(auth, emailInput, passwordInput);
+      } else {
+        await signInWithEmailAndPassword(auth, emailInput, passwordInput);
+      }
     } catch (error) {
-      setAuthError(error.message);
-    }
-  };
-
-  const handleSignup = async () => {
-    try {
-      await createUserWithEmailAndPassword(auth, authForm.email, authForm.password);
-      setAuthError("");
-    } catch (error) {
-      setAuthError(error.message);
+      console.error(error.message);
+      alert(error.message);
     }
   };
 
   const handleLogout = async () => {
-    await signOut(auth);
-    setUser(null);
-    setAuthForm({ email: "", password: "" });
+    try {
+      await signOut(auth);
+    } catch (error) {
+      console.error(error.message);
+    }
   };
+
+  // Resume Generator functions (your original)
 
   const handleChange = (e) => {
     setFormData({ ...formData, [e.target.name]: e.target.value });
@@ -165,7 +157,13 @@ function App() {
       });
 
       if (!response.ok) {
-        throw new Error(`PDF Generation failed with status: ${response.status}`);
+        let errorData;
+        try {
+          errorData = await response.json();
+        } catch (e) {
+          // Ignore if response wasn't JSON
+        }
+        throw new Error(errorData?.error || `PDF Generation failed with status: ${response.status}`);
       }
 
       const blob = await response.blob();
@@ -187,49 +185,111 @@ function App() {
     }
   };
 
+  const renderTextArea = (fieldName, rows = 3) => {
+    let value = editedData[fieldName];
+    if (Array.isArray(value)) {
+      if (fieldName === 'skills' || fieldName === 'languages') {
+        value = value.join(", ");
+      } else {
+        value = value.join("\n");
+      }
+    }
+    const displayValue = (typeof value === 'string' || typeof value === 'number') ? value : '';
+
+    return (
+      <textarea
+        name={fieldName}
+        value={displayValue}
+        onChange={handleEditedChange}
+        rows={rows}
+        className="edit-area"
+        placeholder={fieldName.charAt(0).toUpperCase() + fieldName.slice(1)}
+        disabled={loading}
+      />
+    );
+  };
+
+  const renderExperienceEditor = () => {
+    let experienceString = "";
+    if (Array.isArray(editedData.experience) && editedData.experience.length > 0 && typeof editedData.experience[0] === 'object') {
+      experienceString = editedData.experience.map(job => {
+        const title = job.title || '';
+        const company = job.company || '';
+        const location = job.location || '';
+        const period = job.period || '';
+        const responsibilities = Array.isArray(job.responsibilities) ? job.responsibilities.map(r => `- ${r}`).join("\n") : (job.responsibilities || '');
+        return `Title: ${title}\nCompany: ${company}\nLocation: ${location}\nPeriod: ${period}\nResponsibilities:\n${responsibilities}`;
+      }).join("\n\n---\n\n");
+    } else if (typeof editedData.experience === 'string') {
+      experienceString = editedData.experience;
+    } else if (Array.isArray(editedData.experience)) {
+      experienceString = editedData.experience.join("\n\n---\n\n");
+    }
+
+    return (
+      <textarea
+        name="experience"
+        value={experienceString}
+        onChange={(e) => {
+          setEditedData({ ...editedData, experience: e.target.value });
+        }}
+        rows={10}
+        className="edit-area"
+        placeholder="Experience details (e.g., Title: ..., Company: ..., Responsibilities: - ...)"
+        disabled={loading}
+      />
+    );
+  };
+
   if (!user) {
     return (
       <div className="auth-container">
-        <h2>Login / Signup</h2>
-        <input
-          type="email"
-          name="email"
-          placeholder="Email"
-          value={authForm.email}
-          onChange={handleAuthInputChange}
-        />
-        <input
-          type="password"
-          name="password"
-          placeholder="Password"
-          value={authForm.password}
-          onChange={handleAuthInputChange}
-        />
-        {authMode === "login" ? (
-          <>
-            <button onClick={handleLogin}>Login</button>
-            <p>Don't have an account? <span className="link" onClick={() => setAuthMode("signup")}>Sign Up</span></p>
-          </>
-        ) : (
-          <>
-            <button onClick={handleSignup}>Sign Up</button>
-            <p>Already have an account? <span className="link" onClick={() => setAuthMode("login")}>Login</span></p>
-          </>
-        )}
-        {authError && <div className="error-toast">{authError}</div>}
+        <h2>{isSignup ? "Sign Up" : "Login"}</h2>
+        <form onSubmit={handleLogin}>
+          <input
+            type="email"
+            placeholder="Email"
+            value={emailInput}
+            onChange={(e) => setEmailInput(e.target.value)}
+            required
+          />
+          <input
+            type="password"
+            placeholder="Password"
+            value={passwordInput}
+            onChange={(e) => setPasswordInput(e.target.value)}
+            required
+          />
+          <button type="submit">{isSignup ? "Sign Up" : "Login"}</button>
+        </form>
+        <p>
+          {isSignup ? "Already have an account?" : "Don't have an account?"}
+          <button onClick={() => setIsSignup(!isSignup)} className="link-button">
+            {isSignup ? "Login" : "Sign Up"}
+          </button>
+        </p>
       </div>
     );
   }
 
-  // ✅ If authenticated user, show your resume app
   return (
-    <>
-      <div className="auth-header">
-        <span>Welcome, {user.email}</span>
-        <button className="logout-btn" onClick={handleLogout}>Logout</button>
-      </div>
+    <div className="App container">
+      <header className="header-bar">
+        <h1>AI Resume Generator</h1>
+        <div>
+          <span>Welcome {user.email}!</span> 
+          <button onClick={handleLogout} className="logout-btn">Logout</button>
+        </div>
+      </header>
 
-      {/* 🔥 Your full app here unchanged 🔥 */}
-      {/* ... (YOUR ORIGINAL FUNCTIONALITY) ... */}
-      {/* Continue with your <h1>AI Resume Generator</h1> and other sections */}
+      {/* Your resume generation form/preview code here */}
+      {/* 🔥 (Copy all previous "return" content from your app from here onward!) 🔥 */}
+      
+      {/* ➡️ I can also help you paste full properly formatted render content if needed! */}
+
+    </div>
+  );
+}
+
+export default App;
 
